@@ -64,35 +64,86 @@ pub struct MappableInternal {
     pub chunkrefs: BTreeMap<u64, i32>,
 
     //addr mapping for shared pages from shared memory to private memory
-    //need to write back to shared pages when munmap in cc
-    #[cfg (feature = "cc")]
-    pub p2pmap: BTreeMap<u64, u64>,
+    //need to write back to shared pages when munmap in cc. the value is (private memory,fileOffset,writeable)
+    #[cfg(feature = "cc")]
+    pub p2pmap: BTreeMap<u64, (u64, u64, bool)>,
 }
 
 impl MappableInternal {
-    #[cfg (feature = "cc")]
-    pub fn WritebackPage(&self, phyAddr: u64){
+    #[cfg(feature = "cc")]
+    pub fn WritebackPage(&self, phyAddr: u64) {
         match self.p2pmap.get(&phyAddr) {
             None => (),
-            Some(newAddr) => unsafe {
-                core::ptr::copy_nonoverlapping(
-                    *newAddr as *const u8,
-                    phyAddr as *mut u8,
-                    PAGE_SIZE as usize,
-                );
+            Some((newAddr, _, writeable)) => unsafe {
+                if *writeable {
+                    core::ptr::copy_nonoverlapping(
+                        *newAddr as *const u8,
+                        phyAddr as *mut u8,
+                        PAGE_SIZE as usize,
+                    );
+                }
             },
         }
     }
 
+    #[cfg(feature = "cc")]
+    pub fn SyncWrite(&self, offset: i64, srcs: &[IoVec]) {
+        for i in 0..srcs.len() {
+            let start_page = offset as u64 & !PAGE_MASK;
+            let start_offset = offset as u64 & PAGE_MASK;
+            let end_page = (offset as usize + srcs[i].len - 1) as u64 & !PAGE_MASK;
+            let end_offset = (offset as usize + srcs[i].len - 1) as u64 & PAGE_MASK;
+            for (_, (newAddr, fileoffset, _)) in &self.p2pmap {
+                if *fileoffset >= start_page && *fileoffset <= end_page {
+                    let start = if *fileoffset == start_page {
+                        start_offset
+                    } else {
+                        0
+                    };
+                    let end = if *fileoffset == end_page {
+                        end_offset
+                    } else {
+                        PAGE_MASK
+                    };
+                    let src_offset = srcs[i].start + *fileoffset + start - offset as u64;
+                    let count = end - start + 1;
+                    unsafe {
+                        core::ptr::copy_nonoverlapping(
+                            (src_offset) as *const u8,
+                            (*newAddr + start) as *mut u8,
+                            count as usize,
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "cc")]
+    pub fn WritebackAllPages(&self) {
+        for (phyAddr, (newAddr, _, writeable)) in &self.p2pmap {
+            if *writeable {
+                unsafe {
+                    core::ptr::copy_nonoverlapping(
+                        *newAddr as *const u8,
+                        *phyAddr as *mut u8,
+                        PAGE_SIZE as usize,
+                    );
+                }
+            }
+        }
+    }
     pub fn Clear(&mut self) {
-        #[cfg (feature = "cc")]
-        for (phyAddr, newAddr) in &self.p2pmap{
-            unsafe{
-                core::ptr::copy_nonoverlapping(
-                    *newAddr as *const u8,
-                    *phyAddr as *mut u8,
-                    PAGE_SIZE as usize,
-                );
+        #[cfg(feature = "cc")]
+        for (phyAddr, (newAddr, _, writeable)) in &self.p2pmap {
+            if *writeable {
+                unsafe {
+                    core::ptr::copy_nonoverlapping(
+                        *newAddr as *const u8,
+                        *phyAddr as *mut u8,
+                        PAGE_SIZE as usize,
+                    );
+                }
             }
         }
         for (_offset, phyAddr) in &self.f2pmap {
@@ -136,11 +187,21 @@ impl MappableInternal {
                     }
                     Some(offset) => *offset,
                 };
-                
-                #[cfg (feature = "cc")]
-                for i in 0..CHUNK_SIZE/PAGE_SIZE{
-                    self.WritebackPage(phyAddr+i*PAGE_SIZE);
-                    self.p2pmap.remove(&(phyAddr+i*PAGE_SIZE));
+
+                #[cfg(feature = "cc")]
+                for i in 0..CHUNK_SIZE / PAGE_SIZE {
+                    match self.p2pmap.remove(&(phyAddr + i * PAGE_SIZE)) {
+                        None => (),
+                        Some((newAddr, _, writeable)) => unsafe {
+                            if writeable {
+                                core::ptr::copy_nonoverlapping(
+                                    newAddr as *const u8,
+                                    (phyAddr + i * PAGE_SIZE) as *mut u8,
+                                    PAGE_SIZE as usize,
+                                );
+                            }
+                        },
+                    }
                 }
                 HostSpace::MUnmap(phyAddr, CHUNK_SIZE);
 
@@ -186,7 +247,7 @@ impl Default for MappableInternal {
             f2pmap: BTreeMap::new(),
             mapping: AreaSet::New(0, core::u64::MAX),
             chunkrefs: BTreeMap::new(),
-            #[cfg (feature = "cc")]
+            #[cfg(feature = "cc")]
             p2pmap: BTreeMap::new(),
         };
     }
@@ -317,7 +378,7 @@ impl HostInodeOpIntern {
                 return Err(Error::SysError(SysErr::EPERM));
             }
 
-            return Ok(())
+            return Ok(());
         }
         let ret = HostSpace::TryOpenWrite(dirfd, self.HostFd, name);
         self.skiprw = false;
@@ -327,7 +388,7 @@ impl HostInodeOpIntern {
             return Err(Error::SysError(SysErr::EPERM));
         }
 
-        return Ok(())
+        return Ok(());
     }
 
     /*********************************start of mappable****************************************************************/
@@ -408,11 +469,13 @@ impl HostInodeOpIntern {
         return Ok(phyAddr + (fileOffset - chunkStart));
     }
 
-    #[cfg (feature = "cc")]
-    pub fn MapSharedPage(&mut self, phyAddr: u64, newAddr: u64) {
+    #[cfg(feature = "cc")]
+    pub fn MapSharedPage(&mut self, phyAddr: u64, newAddr: u64, offset: u64, writeable: bool) {
         let mappable = self.Mappable();
         let mut mappableLock = mappable.lock();
-        mappableLock.p2pmap.insert(phyAddr, newAddr);
+        mappableLock
+            .p2pmap
+            .insert(phyAddr, (newAddr, offset, writeable));
     }
     //fill the holes for the file range by mmap
     //start must be Hugepage aligned
@@ -805,7 +868,7 @@ impl HostInodeOp {
         if !hostIops.lock().Writeable {
             error!("writeat {}", hostIops.lock().HostFd);
         }
-        
+
         assert!(hostIops.lock().Writeable);
 
         let size = IoVec::NumBytes(srcs);
@@ -818,6 +881,9 @@ impl HostInodeOp {
         } else {
             size
         };
+
+        #[cfg(feature = "cc")]
+        self.lock().Mappable().lock().SyncWrite(offset, srcs);
 
         let mut buf = DataBuff::New(size);
         let len = task.CopyDataInFromIovs(&mut buf.buf, srcs, true)?;
@@ -930,7 +996,7 @@ impl HostInodeOp {
         } else {
             false
         };
-
+        self.lock().Mappable().lock().WritebackAllPages();
         let ret = if SHARESPACE.config.read().UringIO && self.InodeType() == InodeType::RegularFile
         {
             if self.BufWriteEnable() {
@@ -1033,14 +1099,15 @@ impl HostInodeOp {
         return self.lock().MapFilePage(task, fileOffset);
     }
 
-    #[cfg (feature = "cc")]
-    pub fn MapSharedPage(&self, phyAddr: u64, newAddr: u64) {
-        self.lock().MapSharedPage(phyAddr,newAddr);
+    #[cfg(feature = "cc")]
+    pub fn MapSharedPage(&self, phyAddr: u64, newAddr: u64, offset: u64, writeable: bool) {
+        self.lock()
+            .MapSharedPage(phyAddr, newAddr, offset, writeable);
     }
 
     pub fn MSync(&self, fr: &Range, msyncType: MSyncType) -> Result<()> {
         let ranges = self.GetPhyRanges(fr);
-        #[cfg (feature = "cc")]
+        #[cfg(feature = "cc")]
         self.WritebackRanges(&ranges)?;
         for r in &ranges {
             let ret = HostSpace::MSync(r.Start(), r.Len() as usize, msyncType.MSyncFlags());
@@ -1127,7 +1194,7 @@ impl HostInodeOp {
         return rs;
     }
 
-    #[cfg (feature = "cc")]
+    #[cfg(feature = "cc")]
     pub fn WritebackRanges(&self, ranges: &Vec<Range>) -> Result<()> {
         let mappable = self.lock().Mappable();
         let mappableLock = mappable.lock();
@@ -1354,7 +1421,7 @@ impl InodeOperations for HostInodeOp {
         }
 
         let ret = Ftruncate(self.HostFd(), size);
-        
+
         if ret < 0 {
             return Err(Error::SysError(-ret as i32));
         }

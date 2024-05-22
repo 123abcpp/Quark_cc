@@ -23,6 +23,7 @@ use core::sync::atomic::AtomicU64;
 use core::sync::atomic::Ordering;
 
 use crate::kernel_def::Invlpg;
+use crate::qlib::kernel::Kernel::is_cc_enabled;
 use crate::qlib::mutex::*;
 use crate::IS_GUEST;
 
@@ -1044,44 +1045,43 @@ impl MemoryManager {
                 let vmaOffset = pageAddr - range.Start();
                 let fileOffset = vmaOffset + vma.offset; // offset in the file
                 let phyAddr = iops.MapFilePage(task, fileOffset)?;
+                #[cfg(feature = "cc")]
+                if is_cc_enabled() {
+                    let writeable = vma.effectivePerms.Write();
 
+                    let page = { super::super::PAGE_MGR.AllocPage(true).unwrap() };
+                    CopyPage(page, phyAddr);
 
-                cfg_if::cfg_if! {
-                    if #[cfg(feature = "cc")] {
-                        let writeable = vma.effectivePerms.Write();
+                    if writeable {
+                        self.MapPageWriteLocked(pageAddr, page, exec);
+                    } else {
+                        self.MapPageReadLocked(pageAddr, page, exec);
+                    }
+                    debug!("Map page of Host fd:{}, vaddr:{:x}, phyaddr:{:x}, writeable:{}, private:{},fileoffset:{:x}",iops.HostFd(),pageAddr,page,writeable,vma.private,fileOffset);
+                    if !vma.private {
+                        iops.MapSharedPage(phyAddr, page, fileOffset, writeable);
+                    }
+                    super::super::PAGE_MGR.DerefPage(page);
 
+                    return Ok(());
+                }
+
+                if vma.private {
+                    let writeable = vma.effectivePerms.Write();
+                    if writeable {
                         let page = { super::super::PAGE_MGR.AllocPage(true).unwrap() };
                         CopyPage(page, phyAddr);
-
-                        if writeable{
-                          self.MapPageWriteLocked(pageAddr, page, exec);
-                        } else {
-                          self.MapPageReadLocked(pageAddr, page, exec);
-                        }
-
-                        if !vma.private && writeable{
-                            iops.MapSharedPage(phyAddr, page);
-                        }
+                        self.MapPageWriteLocked(pageAddr, page, exec);
                         super::super::PAGE_MGR.DerefPage(page);
                     } else {
-                            if vma.private {            
-                                let writeable = vma.effectivePerms.Write();
-                                if writeable {
-                                    let page = { super::super::PAGE_MGR.AllocPage(true).unwrap() };
-                                    CopyPage(page, phyAddr);
-                                    self.MapPageWriteLocked(pageAddr, page, exec);
-                                    super::super::PAGE_MGR.DerefPage(page);
-                                } else {
-                                    self.MapPageReadLocked(pageAddr, phyAddr, exec);
-                                }
-                            } else {
-                                let writeable = vma.effectivePerms.Write();
-                                if writeable {
-                                    self.MapPageWriteLocked(pageAddr, phyAddr, exec);
-                                } else {
-                                    self.MapPageReadLocked(pageAddr, phyAddr, exec);
-                                }
-                            }
+                        self.MapPageReadLocked(pageAddr, phyAddr, exec);
+                    }
+                } else {
+                    let writeable = vma.effectivePerms.Write();
+                    if writeable {
+                        self.MapPageWriteLocked(pageAddr, phyAddr, exec);
+                    } else {
+                        self.MapPageReadLocked(pageAddr, phyAddr, exec);
                     }
                 }
 
