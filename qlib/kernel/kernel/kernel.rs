@@ -207,7 +207,7 @@ impl Kernel {
             rootUserNamespace: args.RootUserNamespace,
             rootUTSNamespace: args.RootUTSNamespace,
             rootIPCNamespace: args.RootIPCNamespace,
-            applicationCores: args.ApplicationCores as usize - 1,
+            applicationCores: args.ApplicationCores as usize - 2,
             mounts: QRwLock::new(BTreeMap::new()),
             sockets: SocketStore::default(),
             globalInit: QMutex::new(None),
