@@ -207,9 +207,18 @@ impl TimeKeeperInternal {
             p.realtimeFrequency = realtimeParams.Frequency;
         }
 
+        #[cfg(not(feature = "cc"))]
         match self.params.Write(&p) {
             Err(err) => info!("Unable to update VDSO parameter page: {:?}", err),
             _ => (),
+        }
+
+        #[cfg(feature = "cc")]
+        if crate::IS_GUEST{
+            match self.params.Write(&p) {
+                Err(err) => info!("Unable to update VDSO parameter page: {:?}", err),
+                _ => (),
+            }
         }
     }
 
