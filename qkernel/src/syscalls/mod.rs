@@ -27,6 +27,7 @@ pub mod sys_memfd;
 pub mod sys_mempolicy;
 pub mod sys_mmap;
 pub mod sys_mmap_socket;
+pub mod sys_mount;
 pub mod sys_msgqueue;
 pub mod sys_pipe;
 pub mod sys_poll;

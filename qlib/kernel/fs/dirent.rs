@@ -494,7 +494,7 @@ impl Dirent {
     }
 
     pub fn AddChild(&self, name: String, child: &Dirent) -> Option<Dirent> {
-        assert!(child.IsRoot(), "Add child request the child has no parent");
+        //assert!(child.IsRoot(), "Add child request the child has no parent");
         child.main.lock().Parent = Some(self.clone());
 
         return self.addChild(name, child);

@@ -27,6 +27,7 @@ use super::super::syscalls::sys_memfd::*;
 use super::super::syscalls::sys_mempolicy::*;
 use super::super::syscalls::sys_mmap::*;
 use super::super::syscalls::sys_mmap_socket::*;
+use super::super::syscalls::sys_mount::*;
 use super::super::syscalls::sys_msgqueue::*;
 use super::super::syscalls::sys_pipe::*;
 use super::super::syscalls::sys_poll::*;
@@ -302,8 +303,8 @@ pub const SYS_CALL_TABLE: &'static [SyscallFn] = &[
     SysSync,                // 162 sys_sync,
     SysCapErr,              // 163 sys_acct,
     SysCapErr,              // 164 sys_settimeofday,
-    NotImplementSyscall,    // 165 sys_mount,
-    NotImplementSyscall,    // 166 sys_umount2,
+    SysMount,               // 165 sys_mount,
+    SysUmount2,             // 166 sys_umount2,
     SysCapErr,              // 167 sys_swapon,
     SysCapErr,              // 168 sys_swapoff,
     SysCapErr,              // 169 sys_reboot,

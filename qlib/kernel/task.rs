@@ -445,6 +445,10 @@ impl Task {
         return self.creds.clone();
     }
 
+    pub fn MountNS(&self) -> MountNs {
+        return self.mountNS.clone();
+    }
+    
     pub fn GetFile(&self, fd: i32) -> Result<File> {
         match self.fdTbl.Get(fd) {
             Err(e) => return Err(e),

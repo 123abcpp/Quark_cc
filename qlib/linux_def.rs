@@ -1483,6 +1483,7 @@ impl LibcConst {
     pub const MCL_CURRENT: u64 = 0x1;
     pub const MCL_FUTURE: u64 = 0x2;
     pub const MCL_ONFAULT: u64 = 0x4;
+    pub const UMOUNT_NOFOLLOW: u64 = 0x8;
     pub const MNT_DETACH: u64 = 0x2;
     pub const MNT_EXPIRE: u64 = 0x4;
     pub const MNT_FORCE: u64 = 0x1;

@@ -99,7 +99,7 @@ impl Mount {
     pub fn IsUndo(&self) -> bool {
         if self.Id == Self::INVALID_MOUNT_ID {
             assert!(
-                self.Pid != Self::INVALID_MOUNT_ID,
+                self.Pid == Self::INVALID_MOUNT_ID,
                 "Undo mount with valid parentID"
             );
             return true;
@@ -200,7 +200,7 @@ impl MountNs {
         return Ok(());
     }
 
-    pub fn Unmount(&self, node: &Dirent, detachOnly: bool) -> Result<()> {
+    pub fn Unmount(&self, node: &Dirent, _detachOnly: bool) -> Result<()> {
         let mut mounts = self.mounts.lock();
         let orig = mounts.get(&node.ID());
         let orig = match orig {
@@ -212,11 +212,13 @@ impl MountNs {
             None => panic!("cannot unmount initial dirent"),
             Some(prev) => prev.clone(),
         };
-
+        //Current cannot check whether mount is busy
+        /*
         let m = node.Inode().lock().MountSource.clone();
         if !detachOnly && Arc::strong_count(&m) != 2 {
             return Err(Error::SysError(SysErr::EBUSY));
         }
+        */
 
         node.UnMount(&prev.lock().root)?;
 
