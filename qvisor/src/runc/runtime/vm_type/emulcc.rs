@@ -81,7 +81,7 @@ impl VmType for VmCcEmul {
             MemArea {
                 base_host: MemoryDef::GUEST_HOST_SHARED_HEAP_OFFSET,
                 base_guest: MemoryDef::GUEST_HOST_SHARED_HEAP_OFFSET,
-                size: MemoryDef::GUEST_HOST_SHARED_HEAP_SIZE,
+                size: MemoryDef::GUEST_HOST_SHARED_HEAP_SIZE + MemoryDef::IO_HEAP_SIZE,
                 guest_private: false,
                 host_backedup: true });
         #[cfg(target_arch = "aarch64")] {
