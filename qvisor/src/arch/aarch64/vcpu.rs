@@ -292,13 +292,8 @@ impl VirtCpu for Aarch64VirtCpu {
                 let retAddr = arg2;
                 let ret = SHARE_SPACE.scheduler.WaitVcpu(&SHARE_SPACE, id, true);
                 match ret {
-                    #[cfg(not(feature = "cc"))]
                     Ok(taskId) => unsafe {
                         *(retAddr as *mut u64) = taskId as u64;
-                    },
-                    #[cfg(feature = "cc")]
-                    Ok(taskId) => unsafe {
-                        *(retAddr as *mut TaskId) = taskId;
                     },
                     Err(Error::Exit) => {
                         return Ok(true)
