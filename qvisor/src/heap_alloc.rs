@@ -11,7 +11,6 @@ use super::qlib::mem::list_allocator::*;
 pub const ENABLE_HUGEPAGE: bool = false;
 
 use crate::qlib::kernel::arch::tee::is_cc_active;
-#[cfg(feature = "cc")]
 use crate::qlib::kernel::Kernel::IDENTICAL_MAPPING;
 
 impl BitmapAllocatorWrapper {
@@ -200,6 +199,7 @@ impl HostAllocator {
     //Only used by CCMode::None
     pub fn InitSharedAllocator(&self) {
         self.sharedHeapAddr.store(MemoryDef::HEAP_OFFSET, Ordering::SeqCst);
+        self.GuestHostSharedAllocator().enlarge(MemoryDef::HEAP_OFFSET, MemoryDef::HEAP_END);
         self.GuestHostSharedAllocator().Add(MemoryDef::GUEST_HOST_SHARED_HEAP_OFFSET as usize,
             MemoryDef::GUEST_HOST_SHARED_HEAP_SIZE as usize);
 

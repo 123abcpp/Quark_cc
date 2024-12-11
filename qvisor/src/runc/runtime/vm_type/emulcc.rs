@@ -27,7 +27,6 @@ use crate::{arch::{tee::util::{adjust_addr_to_guest, adjust_addr_to_host},
             SHARE_SPACE, URING_MGR, VMS};
 use crate::arch::VirtCpu;
 use super::{resources::{MemArea, MemLayoutConfig, VmResources, MemAreaType}, VmType};
-#[cfg(feature = "cc")]
 use crate::qlib::kernel::Kernel::IDENTICAL_MAPPING;
 
 
@@ -39,7 +38,6 @@ pub struct VmCcEmul {
     emul_cc_mode: CCMode,
 }
 
-#[cfg(feature = "cc")]
 impl VmType for VmCcEmul {
     fn init(args: Option<&Args>) -> Result<(Box<dyn VmType>, KernelELF), Error> {
         let _pod_id = args.expect("VM creation expects arguments").ID.clone();
