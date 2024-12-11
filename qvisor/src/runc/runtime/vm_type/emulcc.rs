@@ -132,7 +132,7 @@ impl VmType for VmCcEmul {
         kernel_elf: KernelELF,
         args: Args
     ) -> Result<VirtualMachine, Error> {
-        crate::GLOBAL_ALLOCATOR.InitPrivateAllocator();
+        crate::GLOBAL_ALLOCATOR.InitAllocator();
         *ROOT_CONTAINER_ID.lock() = args.ID.clone();
         if QUARK_CONFIG.lock().PerSandboxLog {
             let sandbox_name = match args

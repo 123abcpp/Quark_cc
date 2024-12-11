@@ -137,7 +137,7 @@ impl HostAllocator {
         return false;
     }
 
-    pub fn InitPrivateAllocator(&self) {
+    pub fn InitAllocator(&self) {
         use std::convert::TryInto;
 
         let mut guestPrivHeapStart = self.guestPrivHeapAddr.load(Ordering::Acquire);
@@ -194,21 +194,20 @@ impl HostAllocator {
             guestPrivHeapAddr as usize + size,
             heap_size as usize - size,
         );
-    }
 
-    //Only used by CCMode::None
-    pub fn InitSharedAllocator(&self) {
-        self.sharedHeapAddr.store(MemoryDef::HEAP_OFFSET, Ordering::SeqCst);
-        self.GuestHostSharedAllocator().enlarge(MemoryDef::HEAP_OFFSET, MemoryDef::HEAP_END);
-        self.GuestHostSharedAllocator().Add(MemoryDef::GUEST_HOST_SHARED_HEAP_OFFSET as usize,
-            MemoryDef::GUEST_HOST_SHARED_HEAP_SIZE as usize);
+        if !is_cc_active() {
+            self.sharedHeapAddr.store(MemoryDef::HEAP_OFFSET, Ordering::SeqCst);
+            self.GuestHostSharedAllocator().enlarge(MemoryDef::HEAP_OFFSET, MemoryDef::HEAP_END);
+            self.GuestHostSharedAllocator().Add(MemoryDef::GUEST_HOST_SHARED_HEAP_OFFSET as usize,
+                MemoryDef::GUEST_HOST_SHARED_HEAP_SIZE as usize);
 
-        let ioHeapEnd = MemoryDef::HEAP_END + MemoryDef::IO_HEAP_SIZE;
-        *self.IOAllocator() = ListAllocator::New(MemoryDef::HEAP_END as _, ioHeapEnd);
-        self.IOAllocator().Add(
-            MemoryDef::HEAP_END as usize,
-            MemoryDef::IO_HEAP_SIZE as usize,
-        );
+            let ioHeapEnd = MemoryDef::HEAP_END + MemoryDef::IO_HEAP_SIZE;
+            *self.IOAllocator() = ListAllocator::New(MemoryDef::HEAP_END as _, ioHeapEnd);
+            self.IOAllocator().Add(
+                MemoryDef::HEAP_END as usize,
+                MemoryDef::IO_HEAP_SIZE as usize,
+            );
+        }
     }
 }
 

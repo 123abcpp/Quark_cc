@@ -599,10 +599,9 @@ pub extern "C" fn rust_main(
         //if in any cc machine, shareSpaceAddr is reused as CCMode
         let mode = CCMode::from(shareSpaceAddr);
         GLOBAL_ALLOCATOR.InitPrivateAllocator(mode);
-        GLOBAL_ALLOCATOR.InitSharedAllocator();
         if mode != CCMode::None {
             crate::qlib::kernel::arch::tee::set_tee_type(mode);
-            GLOBAL_ALLOCATOR.InitSharedAllocator_cc();
+            GLOBAL_ALLOCATOR.InitSharedAllocator(mode);
             let size = core::mem::size_of::<ShareSpace>();
             let shared_space = unsafe {
                 GLOBAL_ALLOCATOR.AllocSharedBuf(size, 2)
@@ -610,6 +609,7 @@ pub extern "C" fn rust_main(
             HyperCall64(qlib::HYPERCALL_SHARESPACE_INIT, shared_space as u64, 0, 0, 0);
             SHARESPACE.SetValue(shared_space as u64);
         } else {
+            GLOBAL_ALLOCATOR.InitSharedAllocator(mode);
             SHARESPACE.SetValue(shareSpaceAddr);
         }
 
