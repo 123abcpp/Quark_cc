@@ -15,6 +15,7 @@
 use crate::qlib::mutex::*;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use alloc::boxed::Box;
 use core::any::Any;
 use core::fmt;
 use core::ops::Deref;
@@ -22,6 +23,8 @@ use core::ptr;
 use core::sync::atomic::AtomicBool;
 use core::sync::atomic::AtomicI64;
 use core::sync::atomic::Ordering;
+use crate::GUEST_HOST_SHARED_ALLOCATOR;
+use crate::GuestHostSharedAllocator;
 
 //use super::super::*;
 use super::super::super::super::common::*;
@@ -398,21 +401,21 @@ impl FileOperations for AsyncSocketOperations {
                 return Ok(0);
             }
             LibcConst::TIOCINQ => {
-                let tmp: i32 = 0;
-                let res = Kernel::HostSpace::IoCtl(self.fd, request, &tmp as *const _ as u64,core::mem::size_of::<i32>());
+                let tmp = Box::new_in(0i32, GUEST_HOST_SHARED_ALLOCATOR);
+                let res = Kernel::HostSpace::IoCtl(self.fd, request, &*tmp as *const _ as u64);
                 if res < 0 {
                     return Err(Error::SysError(-res as i32));
                 }
-                task.CopyOutObj(&tmp, val)?;
+                task.CopyOutObj(&*tmp, val)?;
                 return Ok(0);
             }
             _ => {
-                let tmp: i32 = 0;
-                let res = Kernel::HostSpace::IoCtl(self.fd, request, &tmp as *const _ as u64,core::mem::size_of::<i32>());
+                let tmp = Box::new_in(0i32, GUEST_HOST_SHARED_ALLOCATOR);
+                let res = Kernel::HostSpace::IoCtl(self.fd, request, &*tmp as *const _ as u64);
                 if res < 0 {
                     return Err(Error::SysError(-res as i32));
                 }
-                task.CopyOutObj(&tmp, val)?;
+                task.CopyOutObj(&*tmp, val)?;
                 return Ok(0);
             }
         }
@@ -847,17 +850,17 @@ impl SockOperations for AsyncSocketOperations {
         let buf = DataBuff::New(size);
         let iovs = buf.Iovs(size);
 
-        let mut msgHdr = MsgHdr::default();
+        let mut msgHdr = Box::new_in(MsgHdr::default(),GUEST_HOST_SHARED_ALLOCATOR);
         msgHdr.iov = &iovs[0] as *const _ as u64;
         msgHdr.iovLen = iovs.len();
 
-        let mut addr: [u8; SIZEOF_SOCKADDR] = [0; SIZEOF_SOCKADDR];
+        let mut addr: Vec<u8, GuestHostSharedAllocator> = Vec::with_capacity_in(SIZEOF_SOCKADDR, GUEST_HOST_SHARED_ALLOCATOR);
         if senderRequested {
             msgHdr.msgName = &mut addr[0] as *mut _ as u64;
             msgHdr.nameLen = SIZEOF_SOCKADDR as u32;
         }
 
-        let mut controlVec: Vec<u8> = vec![0; controlDataLen];
+        let mut controlVec: Vec<u8, GuestHostSharedAllocator> = Vec::with_capacity_in(controlDataLen, GUEST_HOST_SHARED_ALLOCATOR);
         msgHdr.msgControlLen = controlDataLen;
         if msgHdr.msgControlLen != 0 {
             msgHdr.msgControl = &mut controlVec[0] as *mut _ as u64;
@@ -872,7 +875,7 @@ impl SockOperations for AsyncSocketOperations {
         let mut res = if msgHdr.msgControlLen != 0 {
             Kernel::HostSpace::IORecvMsg(
                 self.fd,
-                &mut msgHdr as *mut _ as u64,
+                &mut *msgHdr as *mut _ as u64,
                 flags | MsgType::MSG_DONTWAIT,
                 false,
             ) as i32
@@ -904,7 +907,7 @@ impl SockOperations for AsyncSocketOperations {
             res = if msgHdr.msgControlLen != 0 {
                 Kernel::HostSpace::IORecvMsg(
                     self.fd,
-                    &mut msgHdr as *mut _ as u64,
+                    &mut *msgHdr as *mut _ as u64,
                     flags | MsgType::MSG_DONTWAIT,
                     false,
                 ) as i32
@@ -945,7 +948,7 @@ impl SockOperations for AsyncSocketOperations {
             buf.buf.len() as i32
         };
         let _len = task.CopyDataOutToIovs(&buf.buf[0..count as usize], dsts, false)?;
-        return Ok((res as i64, msgFlags, senderAddr, controlVec));
+        return Ok((res as i64, msgFlags, senderAddr, controlVec.to_vec()));
     }
 
     fn SendMsg(

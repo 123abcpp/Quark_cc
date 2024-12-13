@@ -16,6 +16,7 @@ use crate::qlib::mutex::*;
 use alloc::sync::Arc;
 use alloc::sync::Weak;
 use alloc::vec::Vec;
+use alloc::boxed::Box;
 use core::any::Any;
 use core::fmt;
 use core::ops::Deref;
@@ -403,7 +404,7 @@ impl UringSocketOperations {
     pub fn PostConnect(&self) {
         let socketBuf = SocketBuff(Arc::new_in(
             SocketBuffIntern::Init(MemoryDef::DEFAULT_BUF_PAGE_COUNT),
-            crate::GUEST_HOST_SHARED_ALLOCATOR,
+            GUEST_HOST_SHARED_ALLOCATOR,
         ));
         *self.socketType.lock() = UringSocketType::Uring(socketBuf.clone());
         QUring::BufSockInit(self.fd, self.queue.clone(), socketBuf, true).unwrap();
@@ -719,22 +720,22 @@ impl FileOperations for UringSocketOperations {
                     task.CopyOutObj(&v, val)?;
                     return Ok(0);
                 } else {
-                    let tmp: i32 = 0;
-                    let res = Kernel::HostSpace::IoCtl(self.fd, request, &tmp as *const _ as u64,core::mem::size_of::<i32>());
+                    let tmp = Box::new_in(0i32, GUEST_HOST_SHARED_ALLOCATOR);
+                    let res = Kernel::HostSpace::IoCtl(self.fd, request, &*tmp as *const _ as u64);
                     if res < 0 {
                         return Err(Error::SysError(-res as i32));
                     }
-                    task.CopyOutObj(&tmp, val)?;
+                    task.CopyOutObj(&*tmp, val)?;
                     return Ok(0);
                 }
             }
             _ => {
-                let tmp: i32 = 0;
-                let res = Kernel::HostSpace::IoCtl(self.fd, request, &tmp as *const _ as u64,core::mem::size_of::<i32>());
+                let tmp = Box::new_in(0i32, GUEST_HOST_SHARED_ALLOCATOR);
+                let res = Kernel::HostSpace::IoCtl(self.fd, request, &*tmp as *const _ as u64);
                 if res < 0 {
                     return Err(Error::SysError(-res as i32));
                 }
-                task.CopyOutObj(&tmp, val)?;
+                task.CopyOutObj(&*tmp, val)?;
                 return Ok(0);
             }
         }

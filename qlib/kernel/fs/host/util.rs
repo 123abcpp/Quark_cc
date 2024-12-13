@@ -394,7 +394,7 @@ pub fn Fallocate(fd: i32, mode: i32, offset: i64, len: i64) -> i64 {
 }
 
 pub fn ReadLinkAt(dirfd: i32, path: &str) -> Result<String> {
-    let mut buf: [u8; 1024] = [0; 1024];
+    let mut buf = Box::new_in([0u8; 1024], GUEST_HOST_SHARED_ALLOCATOR);
     let cstr = SharedCString::New(path);
 
     let ret = HostSpace::ReadLinkAt(dirfd, cstr.Ptr(), &mut buf[0] as *mut _ as u64, 1024);
@@ -435,8 +435,8 @@ pub fn createAt(
     return Ok((ret, fstat));
 }
 
-pub fn Ioctl(fd: i32, cmd: u64, argp: u64, argplen: usize) -> i32 {
-    return HostSpace::IoCtl(fd, cmd, argp, argplen) as i32;
+pub fn Ioctl(fd: i32, cmd: u64, argp: u64) -> i32 {
+    return HostSpace::IoCtl(fd, cmd, argp) as i32;
 }
 
 pub fn Fsync(fd: i32) -> i32 {
@@ -553,8 +553,8 @@ pub fn UnstableAttr(
 
     // the statx uring call sometime become very slow. todo: root cause this.
     if !uringStatx {
-        let mut s: LibcStat = Default::default();
-        let ret = Fstat(hostfd, &mut s) as i32;
+        let mut s = Box::new_in(LibcStat::default(), GUEST_HOST_SHARED_ALLOCATOR);
+        let ret = Fstat(hostfd, &mut *s) as i32;
         if ret < 0 {
             return Err(Error::SysError(-ret as i32));
         }
@@ -642,9 +642,9 @@ pub fn Removexattr(fd: i32, name: &str) -> Result<()> {
 }
 
 pub fn StatFS(fd: i32) -> Result<FsInfo> {
-    let mut statfs = LibcStatfs::default();
+    let mut statfs = Box::new_in(LibcStatfs::default(), GUEST_HOST_SHARED_ALLOCATOR);
 
-    let ret = HostSpace::Fstatfs(fd, &mut statfs as *mut _ as u64);
+    let ret = HostSpace::Fstatfs(fd, &mut *statfs as *mut _ as u64);
     if ret < 0 {
         return Err(Error::SysError(-ret as i32));
     }

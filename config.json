@@ -29,5 +29,5 @@
   "Realtime"      : false,
   "EnableIOBuf"   : false,
   "EnableTsot"    : false,
-  "CCMode"        : "None"
+  "CCMode"        : "NormalEmu"
 }
