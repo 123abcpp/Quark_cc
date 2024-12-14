@@ -327,7 +327,7 @@ impl Scheduler {
                 //error!("stealing ... {:x?}", t);
                 let task = match self.queue[vcpuId].SwapWoringTask(t) {
                     None => {
-                        t.GetTask().SetQueueId(vcpuId);
+                        t.SetQueueId(vcpuId);
                         t
                     }
                     Some(task) => {

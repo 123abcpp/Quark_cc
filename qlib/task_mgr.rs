@@ -53,6 +53,14 @@ impl TaskId {
         }
     }
 
+    pub fn SetQueueId(&self, queueId: usize) {
+        if !is_cc_active(){
+            return self.GetTask().SetQueueId(queueId);
+        } else {
+            return self.GetTaskWrapper().SetQueueId(queueId)
+        }
+    }
+
     #[inline]
     pub fn Ready(&self) -> u64 {
         if !is_cc_active(){
