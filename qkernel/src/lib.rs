@@ -141,6 +141,7 @@ pub static GLOBAL_ALLOCATOR: HostAllocator = HostAllocator::New();
 //pub static GLOBAL_ALLOCATOR: BitmapAllocatorWrapper = BitmapAllocatorWrapper::New();
 
 pub static  IS_GUEST: bool = true;
+pub static SHARED_ALLOCATOR : GlobalVcpuSharedAllocator = GlobalVcpuSharedAllocator::New();
 pub static GUEST_HOST_SHARED_ALLOCATOR: GuestHostSharedAllocator = GuestHostSharedAllocator::New();
 
 lazy_static! {
@@ -150,6 +151,7 @@ lazy_static! {
 //used when cc is enabled
 lazy_static! {
     pub static ref PRIVATE_VCPU_ALLOCATOR: Box<PrivateVcpuAllocators> = Box::new(PrivateVcpuAllocators::New());
+    pub static ref PRIVATE_VCPU_SHARED_ALLOCATOR: Box<PrivateVcpuSharedAllocators> = Box::new(PrivateVcpuSharedAllocators::New());
     pub static ref PAGE_MGR_HOLDER: Box<PageMgr> = Box::new(PageMgr::default());
     pub static ref IO_URING_HOLDER: Box<QUring> = Box::new(QUring::New(MemoryDef::QURING_SIZE));
     pub static ref GUEST_KERNEL: Mutex<Option<kernel::kernel::Kernel>> = Mutex::new(None);
@@ -619,6 +621,8 @@ pub extern "C" fn rust_main(
 
         VCPU_ALLOCATOR.Print();
         VCPU_ALLOCATOR.Initializated();
+        GUEST_HOST_SHARED_ALLOCATOR.Print();
+        GUEST_HOST_SHARED_ALLOCATOR.Initializated();
         InitTsc();
         InitTimeKeeper(vdsoParamAddr);
         debug!("init time keeper finished");

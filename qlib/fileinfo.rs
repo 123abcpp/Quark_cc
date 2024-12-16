@@ -24,7 +24,7 @@ use crate::qlib::kernel::kernel::waiter::*;
 use crate::qlib::kernel::IOURING;
 use crate::qlib::rdmasocket::*;
 use crate::qlib::*;
-use super::mem::cc_allocator::GuestHostSharedAllocator;
+use super::mem::list_allocator::GuestHostSharedAllocator;
 
 #[derive(Clone)]
 pub enum SockInfo {
