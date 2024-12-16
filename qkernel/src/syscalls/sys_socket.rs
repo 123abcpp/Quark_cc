@@ -248,7 +248,7 @@ pub fn SysBind(task: &mut Task, args: &SyscallArguments) -> Result<i64> {
         return Err(Error::SysError(SysErr::EINVAL));
     }
 
-    let addrstr = task.CopyInVec(addr, addrlen as usize)?;
+    let addrstr = task.CopyInVecShared(addr, addrlen as usize)?;
     let res = sock.Bind(task, &addrstr);
 
     return res;
@@ -321,7 +321,7 @@ pub fn SysGetSockOpt(task: &mut Task, args: &SyscallArguments) -> Result<i64> {
         0
     };
 
-    let mut optVal: [u8; MAX_OPT_LEN as usize] = [0; MAX_OPT_LEN as usize];
+    let mut optVal = Box::new_in([0u8; MAX_OPT_LEN as usize], GUEST_HOST_SHARED_ALLOCATOR);
     let res = sock.GetSockOpt(task, level, name, &mut optVal[..optlen as usize])?;
 
     if res < 0 {
@@ -353,7 +353,7 @@ pub fn SysSetSockOpt(task: &mut Task, args: &SyscallArguments) -> Result<i64> {
         return Err(Error::SysError(SysErr::EINVAL));
     }
 
-    let optVal = task.CopyInVec(optValAddr, optLen as usize)?;
+    let optVal = task.CopyInVecShared(optValAddr, optLen as usize)?;
     let res = sock.SetSockOpt(task, level, name, &optVal[..optLen as usize])?;
 
     return Ok(res);
@@ -368,7 +368,7 @@ pub fn SysGetSockName(task: &mut Task, args: &SyscallArguments) -> Result<i64> {
 
     let sock = file.FileOp.clone();
 
-    let mut buf: [u8; MAX_ADDR_LEN as usize] = [0; MAX_ADDR_LEN as usize];
+    let mut buf = Box::new_in([0u8; MAX_ADDR_LEN as usize], GUEST_HOST_SHARED_ALLOCATOR);
     let len = task.CopyInObj::<i32>(addrlen)?;
 
     let len = if len > MAX_ADDR_LEN as i32 {
@@ -398,9 +398,9 @@ pub fn SysGetPeerName(task: &mut Task, args: &SyscallArguments) -> Result<i64> {
     let file = task.GetFile(fd)?;
 
     let sock = file.FileOp.clone();
-    let mut buf: [u8; MAX_ADDR_LEN as usize] = [0; MAX_ADDR_LEN as usize];
+    let mut buf = Box::new_in([0u8; MAX_ADDR_LEN as usize], GUEST_HOST_SHARED_ALLOCATOR);
 
-    let mut outputlen = sock.GetPeerName(task, &mut buf)? as usize;
+    let mut outputlen = sock.GetPeerName(task, &mut *buf)? as usize;
 
     //info!("SysGetPeerName buf is {}", &buf[..outputlen as usize]);
 

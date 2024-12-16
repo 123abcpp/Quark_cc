@@ -250,14 +250,14 @@ impl HostUnixSocketOperations {
     }
 
     pub fn GetSockOpt(&self, _task: &Task, level: i32, name: i32, opt: &mut [u8]) -> Result<i64> {
-        let mut optLen = opt.len();
-        let res = if optLen == 0 {
+        let mut optLen = Box::new_in(opt.len(), GUEST_HOST_SHARED_ALLOCATOR);
+        let res = if *optLen == 0 {
             Kernel::HostSpace::GetSockOpt(
                 self.fd,
                 level,
                 name,
                 ptr::null::<u8>() as u64,
-                &mut optLen as *mut _ as u64,
+                &mut *optLen as *mut _ as u64,
             )
         } else {
             Kernel::HostSpace::GetSockOpt(
@@ -265,7 +265,7 @@ impl HostUnixSocketOperations {
                 level,
                 name,
                 &mut opt[0] as *mut _ as u64,
-                &mut optLen as *mut _ as u64,
+                &mut *optLen as *mut _ as u64,
             )
         };
 
@@ -273,7 +273,7 @@ impl HostUnixSocketOperations {
             return Err(Error::SysError(-res as i32));
         }
 
-        return Ok(optLen as i64);
+        return Ok(*optLen as i64);
     }
 
 
@@ -293,17 +293,17 @@ impl HostUnixSocketOperations {
     }
 
     pub fn GetPeerName(&self, _task: &Task, socketaddr: &mut [u8]) -> Result<i64> {
-        let len = socketaddr.len() as i32;
+        let len = Box::new_in(socketaddr.len() as i32, GUEST_HOST_SHARED_ALLOCATOR);
         let res = Kernel::HostSpace::GetPeerName(
             self.fd,
             &socketaddr[0] as *const _ as u64,
-            &len as *const _ as u64,
+            &*len as *const _ as u64,
         );
         if res < 0 {
             return Err(Error::SysError(-res as i32));
         }
 
-        return Ok(len as i64);
+        return Ok(*len as i64);
     }
     
     pub fn RecvMsg(

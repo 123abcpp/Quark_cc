@@ -1203,14 +1203,14 @@ impl SockOperations for TsotSocketOperations {
             }
         }
 
-        let mut optLen = opt.len();
-        let res = if optLen == 0 {
+        let mut optLen = Box::new_in(opt.len(), GUEST_HOST_SHARED_ALLOCATOR);
+        let res = if *optLen == 0 {
             Kernel::HostSpace::GetSockOpt(
                 self.fd,
                 level,
                 name,
                 ptr::null::<u8>() as u64,
-                &mut optLen as *mut _ as u64,
+                &mut *optLen as *mut _ as u64,
             )
         } else {
             Kernel::HostSpace::GetSockOpt(
@@ -1218,7 +1218,7 @@ impl SockOperations for TsotSocketOperations {
                 level,
                 name,
                 &mut opt[0] as *mut _ as u64,
-                &mut optLen as *mut _ as u64,
+                &mut *optLen as *mut _ as u64,
             )
         };
 
@@ -1226,7 +1226,7 @@ impl SockOperations for TsotSocketOperations {
             return Err(Error::SysError(-res as i32));
         }
 
-        return Ok(optLen as i64);
+        return Ok(*optLen as i64);
     }
 
     fn SetSockOpt(&self, task: &Task, level: i32, name: i32, opt: &[u8]) -> Result<i64> {
@@ -1622,15 +1622,15 @@ impl SockOperations for TsotSocketOperations {
     }
 
     fn State(&self) -> u32 {
-        let mut info = TCPInfo::default();
-        let mut len = SocketSize::SIZEOF_TCPINFO;
+        let mut info = Box::new_in(TCPInfo::default(), GUEST_HOST_SHARED_ALLOCATOR);
+        let mut len = Box::new_in(SocketSize::SIZEOF_TCPINFO, GUEST_HOST_SHARED_ALLOCATOR);
 
         let ret = HostSpace::GetSockOpt(
             self.fd,
             LibcConst::SOL_TCP as _,
             LibcConst::TCP_INFO as _,
-            &mut info as *mut _ as u64,
-            &mut len as *mut _ as u64,
+            &mut *info as *mut _ as u64,
+            &mut *len as *mut _ as u64,
         ) as i32;
 
         if ret < 0 {
@@ -1645,7 +1645,7 @@ impl SockOperations for TsotSocketOperations {
             }
         }
 
-        if len != SocketSize::SIZEOF_TCPINFO {
+        if *len != SocketSize::SIZEOF_TCPINFO {
             error!("Failed to get TCP socket info getsockopt(2) returned {} bytes, expecting {} bytes.", SocketSize::SIZEOF_TCPINFO, ret);
             return 0;
         }
