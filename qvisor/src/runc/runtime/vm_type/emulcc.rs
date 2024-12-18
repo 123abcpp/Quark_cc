@@ -20,7 +20,7 @@ use kvm_ioctls::{Cap, Kvm, VmFd};
 use crate::{arch::{tee::util::{adjust_addr_to_guest, adjust_addr_to_host},
             vm::vcpu::ArchVirtCpu}, elf_loader::KernelELF, print::LOG,
             qlib::{addr::{Addr, PageOpts}, common::Error, kernel::{kernel::{futex, timer},
-            vcpu::CPU_LOCAL, SHARESPACE}, linux_def::MemoryDef, pagetable::PageTables,
+            vcpu::CPU_LOCAL, SHARESPACE, IOURING}, linux_def::MemoryDef, pagetable::PageTables,
             pagetable::HugePageType, ShareSpace}, runc::runtime::{loader::Args,
             vm::{self, VirtualMachine}}, tsot_agent::TSOT_AGENT, CCMode, VMSpace,
             KERNEL_IO_THREAD, PMA_KEEPER, QUARK_CONFIG, ROOT_CONTAINER_ID,
@@ -376,6 +376,8 @@ impl VmType for VmCcEmul {
         URING_MGR.lock().Addfd(share_space_ptr.HostHostEpollfd()).unwrap();
         URING_MGR.lock().Addfd(control_sock).unwrap();
         KERNEL_IO_THREAD.Init(share_space_ptr.scheduler.VcpuArr[0].eventfd);
+        IOURING.SetValue(share_space_ptr.GetIOUringAddr());
+
         unsafe {
             CPU_LOCAL.Init(&SHARESPACE.scheduler.VcpuArr);
             futex::InitSingleton();
