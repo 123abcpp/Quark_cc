@@ -53,7 +53,7 @@ use super::*;
 use crate::qlib::kernel::{SHARESPACE, asm::*};
 use crate::qlib::vcpu_mgr::VcpuMode;
 
-use crate::qlib::kernel::arch::tee::is_cc_active;
+use crate::qlib::kernel::arch::tee::{is_cc_active, guest_physical_address};
 
 pub struct MMMapping {
     pub vmas: AreaSet<VMA>,
@@ -1470,7 +1470,7 @@ impl MemoryManager {
                     };
 
                     (
-                        entry.addr().as_u64(),
+                        guest_physical_address(entry.addr().as_u64()),
                         AccessType::NewFromPageFlags(entry.flags()),
                     )
                 }
