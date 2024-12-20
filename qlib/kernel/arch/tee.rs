@@ -31,7 +31,7 @@ pub fn set_tee_type(mode: CCMode) {
             // We care only for the first write by vCPU0
             unsafe {
                 if SET == false {
-                    TEE_TYPE.store(mode as u8, Ordering::Relaxed);
+                    TEE_TYPE.store(mode as u8, Ordering::SeqCst);
                     SET = true;
                 }
             }
