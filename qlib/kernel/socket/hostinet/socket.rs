@@ -1869,12 +1869,14 @@ impl SockOperations for SocketOperations {
         msgHdr.iovLen = iovs.len();
 
         let mut addr: Vec<u8, GuestHostSharedAllocator> = Vec::with_capacity_in(SIZEOF_SOCKADDR, GUEST_HOST_SHARED_ALLOCATOR);
+        addr.resize(SIZEOF_SOCKADDR, 0);
         if senderRequested {
             msgHdr.msgName = &mut addr[0] as *mut _ as u64;
             msgHdr.nameLen = SIZEOF_SOCKADDR as u32;
         }
 
         let mut controlVec: Vec<u8, GuestHostSharedAllocator> = Vec::with_capacity_in(controlDataLen, GUEST_HOST_SHARED_ALLOCATOR);
+        controlVec.resize(controlDataLen, 0);
         msgHdr.msgControlLen = controlDataLen;
         if msgHdr.msgControlLen != 0 {
             msgHdr.msgControl = &mut controlVec[0] as *mut _ as u64;

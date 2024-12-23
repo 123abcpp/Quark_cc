@@ -344,6 +344,7 @@ impl HostUnixSocketOperations {
         // }
 
         let mut controlVec: Vec<u8, GuestHostSharedAllocator> = Vec::with_capacity_in(controlDataLen, GUEST_HOST_SHARED_ALLOCATOR);
+        controlVec.resize(controlDataLen, 0);
         msgHdr.msgControlLen = controlDataLen;
         if msgHdr.msgControlLen != 0 {
             msgHdr.msgControl = &mut controlVec[0] as *mut _ as u64;
