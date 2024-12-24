@@ -41,7 +41,7 @@ pub struct VmCcEmul {
 impl VmType for VmCcEmul {
     fn init(args: Option<&Args>) -> Result<(Box<dyn VmType>, KernelELF), Error> {
         let _pod_id = args.expect("VM creation expects arguments").ID.clone();
-        let default_min_vcpus = 3;
+        let default_min_vcpus = 2;
         let _emul_type: CCMode = QUARK_CONFIG.lock().CCMode;
         if _emul_type == CCMode::Normal {
             IDENTICAL_MAPPING.store(true, Ordering::Release);
