@@ -733,18 +733,18 @@ impl SockOperations for HostSocketOperations {
     }
 
     fn GetSockName(&self, _task: &Task, socketaddr: &mut [u8]) -> Result<i64> {
-        let len = socketaddr.len() as i32;
+        let len = Box::new_in(socketaddr.len() as i32, GUEST_HOST_SHARED_ALLOCATOR);
 
         let res = Kernel::HostSpace::GetSockName(
             self.fd,
             &socketaddr[0] as *const _ as u64,
-            &len as *const _ as u64,
+            &*len as *const _ as u64,
         );
         if res < 0 {
             return Err(Error::SysError(-res as i32));
         }
 
-        return Ok(len as i64);
+        return Ok(*len as i64);
     }
 
     fn GetPeerName(&self, _task: &Task, socketaddr: &mut [u8]) -> Result<i64> {
